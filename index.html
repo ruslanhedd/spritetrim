@@ -76,42 +76,82 @@
         button:hover {
             background: #0056b3;
         }
+
+        .preview-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .preview {
+            margin: 10px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .preview img {
+            display: block;
+            max-width: 100%;
+        }
     </style>
 </head>
 <body>
 
     <div class="container">
         <h1>Pixel Sprite Optimizer</h1>
-        <input type="file" id="fileInput" accept="image/*">
-        <canvas id="canvas"></canvas>
+        <input type="file" id="fileInput" accept="image/*" multiple>
+        <canvas id="canvas" style="display:none;"></canvas>
         <button id="downloadBtn">Download as PNG</button>
+        <div class="preview-container" id="previewContainer"></div>
     </div>
 
     <script>
         document.getElementById('fileInput').addEventListener('change', handleFileSelect);
-        document.getElementById('downloadBtn').addEventListener('click', downloadImage);
+        document.getElementById('downloadBtn').addEventListener('click', downloadImages);
+
+        let trimmedImages = [];
 
         function handleFileSelect(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+            const files = event.target.files;
+            trimmedImages = [];
+            const previewContainer = document.getElementById('previewContainer');
+            previewContainer.innerHTML = '';
 
-            const img = new Image();
-            img.src = URL.createObjectURL(file);
-            img.onload = () => {
-                const canvas = document.getElementById('canvas');
-                const ctx = canvas.getContext('2d');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                ctx.drawImage(img, 0, 0);
+            Array.from(files).forEach(file => {
+                const img = new Image();
+                img.src = URL.createObjectURL(file);
+                img.onload = () => {
+                    const canvas = document.getElementById('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
 
-                const trimmedData = trimImage(ctx, img.width, img.height);
-                const newSize = calculateNewSize(trimmedData.width, trimmedData.height, 10);
-                const resizedData = resizeImage(trimmedData, newSize.width, newSize.height);
+                    const trimmedData = trimImage(ctx, img.width, img.height);
+                    const newSize = calculateNewSize(trimmedData.width, trimmedData.height, 10);
+                    const resizedData = resizeImage(trimmedData, newSize.width, newSize.height);
 
-                canvas.width = resizedData.width;
-                canvas.height = resizedData.height;
-                ctx.putImageData(resizedData, 0, 0);
-            };
+                    canvas.width = resizedData.width;
+                    canvas.height = resizedData.height;
+                    ctx.putImageData(resizedData, 0, 0);
+
+                    const dataUrl = canvas.toDataURL('image/png');
+                    trimmedImages.push({ name: file.name, data: dataUrl });
+                    URL.revokeObjectURL(img.src);
+
+                    const preview = document.createElement('div');
+                    preview.className = 'preview';
+                    const previewImg = document.createElement('img');
+                    previewImg.src = dataUrl;
+                    preview.appendChild(previewImg);
+                    previewContainer.appendChild(preview);
+                };
+                img.onerror = () => {
+                    console.error('Failed to load image');
+                };
+            });
         }
 
         function trimImage(ctx, width, height) {
@@ -161,12 +201,13 @@
             return tempCtx.getImageData(0, 0, newWidth, newHeight);
         }
 
-        function downloadImage() {
-            const canvas = document.getElementById('canvas');
-            const link = document.createElement('a');
-            link.download = 'optimized_sprite.png';
-            link.href = canvas.toDataURL('image/png');
-            link.click();
+        function downloadImages() {
+            trimmedImages.forEach(image => {
+                const link = document.createElement('a');
+                link.download = image.name.replace(/\.[^/.]+$/, "") + '_optimized.png';
+                link.href = image.data;
+                link.click();
+            });
         }
     </script>
 
