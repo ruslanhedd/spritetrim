@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel Sprite Optimizer</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1e1e2f, #3b3b58);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        input[type="file"] {
+            padding: 10px;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            cursor: pointer;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        input[type="file"]:hover {
+            background: #007bff;
+            color: white;
+        }
+
+        canvas {
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            margin-top: 20px;
+            background: white;
+            display: block;
+            max-width: 100%;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            margin-top: 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Pixel Sprite Optimizer</h1>
+        <input type="file" id="fileInput" accept="image/*">
+        <canvas id="canvas"></canvas>
+        <button id="downloadBtn">Download as PNG</button>
+    </div>
+
+    <script>
+        document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+        document.getElementById('downloadBtn').addEventListener('click', downloadImage);
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const img = new Image();
+            img.src = URL.createObjectURL(file);
+            img.onload = () => {
+                const canvas = document.getElementById('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+
+                const trimmedData = trimImage(ctx, img.width, img.height);
+                const newSize = calculateNewSize(trimmedData.width, trimmedData.height, 10);
+                const resizedData = resizeImage(trimmedData, newSize.width, newSize.height);
+
+                canvas.width = resizedData.width;
+                canvas.height = resizedData.height;
+                ctx.putImageData(resizedData, 0, 0);
+            };
+        }
+
+        function trimImage(ctx, width, height) {
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+            let top = height, bottom = 0, left = width, right = 0;
+
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const index = (y * width + x) * 4;
+                    if (data[index + 3] > 0) {
+                        if (x < left) left = x;
+                        if (x > right) right = x;
+                        if (y < top) top = y;
+                        if (y > bottom) bottom = y;
+                    }
+                }
+            }
+
+            const trimmedWidth = right - left + 1;
+            const trimmedHeight = bottom - top + 1;
+            const trimmedData = ctx.getImageData(left, top, trimmedWidth, trimmedHeight);
+
+            return { data: trimmedData, width: trimmedWidth, height: trimmedHeight };
+        }
+
+        function calculateNewSize(width, height, reductionFactor) {
+            return {
+                width: Math.floor(width / reductionFactor),
+                height: Math.floor(height / reductionFactor)
+            };
+        }
+
+        function resizeImage(trimmed, newWidth, newHeight) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = trimmed.width;
+            canvas.height = trimmed.height;
+
+            ctx.putImageData(trimmed.data, 0, 0);
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = newWidth;
+            tempCanvas.height = newHeight;
+
+            tempCtx.drawImage(canvas, 0, 0, newWidth, newHeight);
+            return tempCtx.getImageData(0, 0, newWidth, newHeight);
+        }
+
+        function downloadImage() {
+            const canvas = document.getElementById('canvas');
+            const link = document.createElement('a');
+            link.download = 'optimized_sprite.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+    </script>
+
+</body>
+</html>
